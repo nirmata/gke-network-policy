@@ -25,3 +25,7 @@ The following 3 policies are supplied:
 - `validate-net-label-exists` - Checks to make sure any new `Deployments` in the
   cluster are defining labels for egress and ingress access. Thus ensuring
   proper enforcement of `default-deny` posture.
+
+## Installation
+
+To use the following policies simply install Kyverno and run `kubectl apply -f policies/`
