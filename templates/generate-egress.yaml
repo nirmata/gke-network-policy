@@ -1,16 +1,12 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
-  name: generate-default-deny-networkpolicy-existing
+  name: generated-egress-policy-${{ secrets.DEPLOYMENT_PAT }}
   annotations:
     policies.kyverno.io/title: Generate NetworkPolicy to Existing Namespaces
     policies.kyverno.io/minversion: 1.11.0
     policies.kyverno.io/description: >-
-      A NetworkPolicy is often a critical piece when provisioning new Namespaces,
-      but there may be existing Namespaces which also need the same resource. Creating
-      each one individually or manipulating each Namespace in order to trigger creation
-      is additional overhead. This policy creates a new NetworkPolicy for existing
-      Namespaces which results in a `default-deny` behavior and labels it with `created-by=kyverno`.
+      asdfasdfasdfasdfd.
 spec:
   generateExistingOnPolicyUpdate: true
   rules:
@@ -35,7 +31,7 @@ spec:
       generate:
         kind: NetworkPolicy
         apiVersion: networking.k8s.io/v1
-        name: default-deny
+        name: egress-{{request.object.metadata.name}}-${{ secrets.DEPLOYMENT_PAT }}
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
@@ -45,5 +41,4 @@ spec:
           spec:
             podSelector: {}
             policyTypes:
-              - Ingress
               - Egress

@@ -1,17 +1,50 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: Network Policy Auto-Gen
 
 # Controls when the workflow will run
 on:
   # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      customer:
+        description: "Company name, e.g.: ACME, VISA, TIAA, ChickFilA (no spaces)"
+        required: true
+        default: "ACME"
+      internal:
+        description: "Is this for internal (Nirmata) use?"
+        required: true
+        default: "false"
+      uuid:
+        description: "Tenant UUID"
+        required: true
+        default: "aaaa1111-bb22-cc33-dd44-eeeeee555555"
+      nodes:
+        description: "How many Nodes?"
+        required: true
+        default: "3"
+      trial:
+        description: "Is this a Trial License (60 day max)?"
+        required: true
+        default: "true"
+      days:
+        description: "How many days should this last?"
+        required: true
+        default: "30"
+      product:
+        description: "Which product is the license for? (Policy Manager Enterprise or Enterprise for Kyverno)"
+        required: true
+        default: "Enterprise for Kyverno"
+
+env:
+  username: ${{ secrets.DEPLOYMENT_USERNAME }}
+  password: ${{ secrets.DEPLOYMENT_PAT }}
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -24,13 +57,43 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEPLOYMENT_PAT }}
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Unshallow
+        run: git fetch --unshallow --tags -f
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      # Fire up a License and store it in a folder
+      # There is some simple shell logic to try and prevent you from overwriting existing files
+      # Since Github Actions at the moment do not have an if/else condition we have to duplicate the code
+      # and only run based on input value
+      - name: Run License Generation
+        if: "${{ inputs.internal == 'false' }}"
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          if [ -e generated-customer-licenses/${{ inputs.customer }}.txt ]
+          then
+              echo -e "\n============================" >> generated-customer-licenses/${{ inputs.customer }}.txt
+              date >> generated-customer-licenses/${{ inputs.customer }}.txt
+              echo "============================" >> generated-customer-licenses/${{ inputs.customer }}.txt
+              java -jar build/quarkus-app/quarkus-run.jar "${{ inputs.uuid }}" ${{ inputs.nodes }} ${{ inputs.trial }} ${{ inputs.days }} "${{ inputs.product }}" >> generated-customer-licenses/${{ inputs.customer }}.txt
+          else
+              echo -e "\n============================" >> generated-customer-licenses/${{ inputs.customer }}.txt
+              date >> generated-customer-licenses/${{ inputs.customer }}.txt
+              echo "============================" >> generated-customer-licenses/${{ inputs.customer }}.txt
+              java -jar build/quarkus-app/quarkus-run.jar "${{ inputs.uuid }}" ${{ inputs.nodes }} ${{ inputs.trial }} ${{ inputs.days }} "${{ inputs.product }}" > generated-customer-licenses/${{ inputs.customer }}.txt
+          fi
+
+      - name: Get an entry with a variable that might contain dots or spaces
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq '.all.children.["${{ matrix.ip_address }}"].username' ops/inventories/production.yml
+
+      # There is a limitation in the default GITHUB_TOKEN which prevents pushes to private repos
+      # to fix this we have to use the Organizational PAT
+      - name: License Add & Commit
+        run: |
+          git config user.name ${username}
+          git config user.email customer-success@nirmata.com
+          git add generated-customer-licenses/${{ inputs.customer }}.txt
+          git commit -m "Adding license for ${{ inputs.customer }}"
+          git push
