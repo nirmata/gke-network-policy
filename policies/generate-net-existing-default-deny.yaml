@@ -1,12 +1,13 @@
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
-  name: generated-ingress-policy-${{ input.from.github }}
+  name: generate-default-deny-networkpolicy-existing
   annotations:
     policies.kyverno.io/title: Generate NetworkPolicy to Existing Namespaces
     policies.kyverno.io/minversion: 1.11.0
     policies.kyverno.io/description: >-
-      asdfasdfasdf.
+      A NetworkPolicy enforcing default-deny on traffic, except for things which are explicitly labeled
+      for egress or ingress traffic. By default the policy enforces this to the local namespace scope.
 spec:
   generateExistingOnPolicyUpdate: true
   rules:
@@ -31,7 +32,7 @@ spec:
       generate:
         kind: NetworkPolicy
         apiVersion: networking.k8s.io/v1
-        name: ingress-{{request.object.metadata.name}}-${{ input.from.github }}
+        name: default-deny
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
@@ -39,13 +40,17 @@ spec:
             labels:
               created-by: kyverno
           spec:
-            podSelector:
-              matchLabels:
-                role: ${{ input.from.github }}
+            podSelector: {}
             policyTypes:
               - Ingress
+              - Egress
+            egress:
+              - from:
+                  - podSelector:
+                      matchLabels:
+                        egressAccess: "true"
             ingress:
               - from:
                   - podSelector:
                       matchLabels:
-                        role: ${{ input.from.github }}
+                        ingressAccess: "true"

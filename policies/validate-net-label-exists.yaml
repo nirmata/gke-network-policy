@@ -1,0 +1,62 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-networkpolicy-traffic-labels
+  annotations:
+    policies.kyverno.io/title: Require Network Traffic Labels
+    policies.kyverno.io/minversion: 1.11.0
+    policies.kyverno.io/description: >-
+      Ensures that any new deployments include the required labeling for ingress and egress
+      traffic, thus ensuring a proper default-deny stance.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-for-ingress-traffic-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              # these namespace exclusions are not exhaustive
+              # and are GKE specific
+              namespaces:
+                - kube-system
+                - gke-managed-filestorecsi
+                - gmp-public
+                - gke-gmp-system
+                - kube-node-lease
+                - kube-public
+      validate:
+        message: "The labels `ingressAccess` is required."
+        pattern:
+          metadata:
+            labels:
+              ingressAccess: "?*"
+    - name: check-for-egress-traffic-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              # these namespace exclusions are not exhaustive
+              # and are GKE specific
+              namespaces:
+                - kube-system
+                - gke-managed-filestorecsi
+                - gmp-public
+                - gke-gmp-system
+                - kube-node-lease
+                - kube-public
+      validate:
+        message: "The labels `egressAccess` is required."
+        pattern:
+          metadata:
+            labels:
+              egressAccess: "?*"
