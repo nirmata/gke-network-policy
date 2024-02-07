@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
-  name: generated-ingress-policy-${{ secrets.DEPLOYMENT_PAT }}
+  name: generated-ingress-policy-${{ input.from.github }}
   annotations:
     policies.kyverno.io/title: Generate NetworkPolicy to Existing Namespaces
     policies.kyverno.io/minversion: 1.11.0
@@ -31,7 +31,7 @@ spec:
       generate:
         kind: NetworkPolicy
         apiVersion: networking.k8s.io/v1
-        name: ingress-{{request.object.metadata.name}}-${{ secrets.DEPLOYMENT_PAT }}
+        name: ingress-{{request.object.metadata.name}}-${{ input.from.github }}
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         data:
@@ -39,6 +39,13 @@ spec:
             labels:
               created-by: kyverno
           spec:
-            podSelector: {}
+            podSelector:
+              matchLabels:
+                role: ${{ input.from.github }}
             policyTypes:
               - Ingress
+            ingress:
+              - from:
+                  - podSelector:
+                      matchLabels:
+                        role: ${{ input.from.github }}
